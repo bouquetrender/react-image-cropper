@@ -16,6 +16,8 @@ type IProps = {
   emptyTitle?: string
   // 上传按钮文本
   emptyBtnText?: string
+  // 图片大小限制
+  imageSize: number
   // 图片比例
   aspectRatio?: number
   // 确认回调
@@ -24,6 +26,8 @@ type IProps = {
   onCropperCancel?: Function
   // 删除回调
   onImageDel?: Function
+  // 是否开启裁剪
+  enableCropper: boolean
 }
 
 const defaultRatio = 16 / 9
@@ -31,6 +35,8 @@ const defaultRatio = 16 / 9
 // github.com/fengyuanchen/cropperjs
 
 export default (props: IProps) => {
+  const enableCropper = props.enableCropper
+
   const [btnLoading, setBtnLoading] = useState<boolean>(false)
   const [visible, setVisible] = useState<boolean>(false)
 
@@ -55,7 +61,7 @@ export default (props: IProps) => {
 
   const uploadProps: UploadProps = {
     beforeUpload: (file) => {
-      const sizeLimit = file.size / 1024 / 1024 < 2
+      const sizeLimit = file.size / 1024 / 1024 < props.imageSize
       if (!sizeLimit) {
         message.warn('最大支持上传文件大小为2M')
         return false
@@ -63,13 +69,19 @@ export default (props: IProps) => {
       return sizeLimit
     },
     onChange: (info) => {
-      setVisible(true)
       const fileObj: any = info.fileList[0].originFileObj
-      const reader = new FileReader()
-      reader.onload = () => {
-        setImage(reader.result as any)
+      if (enableCropper) {
+        setVisible(true)
+        const reader = new FileReader()
+        reader.onload = () => {
+          setImage(reader.result as any)
+        }
+        reader.readAsDataURL(fileObj)
+      } else {
+        let blob = new Blob([fileObj], { type: fileObj.type })
+        setCropData(URL.createObjectURL(blob))
+        props.onCropperOk(blob)
       }
-      reader.readAsDataURL(fileObj)
     },
   }
 
@@ -94,7 +106,11 @@ export default (props: IProps) => {
               <div className={styles['cropper-del']} onClick={onDelImage}>
                 <CloseCircleTwoTone style={{ fontSize: '16px' }} twoToneColor={'#E02020'} />
               </div>
-              <img style={{ width: '100%' }} src={cropData} alt='cropped' />
+              <img
+                style={enableCropper ? { width: '100%' } : { width: '100%', height: '100%' }}
+                src={cropData}
+                alt='cropped'
+              />
             </>
           ) : (
             <div className={styles['cropper-empty-wrap']}>
